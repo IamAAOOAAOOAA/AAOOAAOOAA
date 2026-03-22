@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>音浪弹跳球</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        :root {
+            --main: #5E5CE6;
+            --light-main: #F0EFFF;
+            --white: rgba(255,255,255,0.92);
+            --glass: rgba(255,255,255,0.7);
+            --radius: 24px;
+            --radius-small: 16px;
+            --shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+        body {
+            background: #F7F7FB;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            touch-action: none;
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+        }
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+        #startBtn {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 18px 44px;
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            border-radius: var(--radius);
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            color: var(--main);
+            cursor: pointer;
+            z-index: 30;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow);
+        }
+        #startBtn.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(0.9);
+        }
+        #settingBtn {
+            position: fixed;
+            top: 28px;
+            right: 28px;
+            width: 52px;
+            height: 52px;
+            border: none;
+            border-radius: 50%;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 30;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+        }
+        #panel {
+            position: fixed;
+            top: 90px;
+            right: 28px;
+            width: clamp(290px, 85vw, 340px);
+            max-height: 78vh;
+            padding: 24px;
+            background: var(--white);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            z-index: 30;
+            display: none;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+        #panel.show {
+            display: flex;
+            animation: panelShow 0.3s ease forwards;
+        }
+        @keyframes panelShow {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .panel-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #1A1A1A;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #E5E5EA;
+        }
+        .section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .label {
+            font-size: 14px;
+            color: #3A3A3C;
+            display: flex;
+            justify-content: space-between;
+            font-weight: 500;
+        }
+        .slider {
+            width: 100%;
+            height: 6px;
+            background: #E5E5EA;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--main);
+            cursor: pointer;
+        }
+        .theme-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .theme-btn {
+            padding: 12px 8px;
+            border: none;
+            border-radius: var(--radius-small);
+            background: var(--light-main);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            color: var(--main);
+        }
+        .theme-btn.active {
+            background: var(--main);
+            color: #fff;
+            font-weight: 600;
+        }
+        #customColorPanel {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            padding: 16px;
+            background: var(--light-main);
+            border-radius: var(--radius-small);
+        }
+        .color-trigger {
+            width: 100%;
+            height: 50px;
+            border-radius: var(--radius-small);
+            background: #fff;
+            border: 2px solid #E5E5EA;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            font-size: 15px;
+            font-weight: 500;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .color-trigger:hover {
+            border-color: var(--main);
+        }
+        .color-preview-small {
+            width: 24px;
+            height: 24px;
+            border-radius: 8px;
+            background: var(--main);
+        }
+        .color-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .color-modal-overlay.show {
+            display: flex;
+            animation: modalShow 0.2s ease forwards;
+        }
+        @keyframes modalShow {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .color-modal {
+            width: 90%;
+            max-width: 340px;
+            background: var(--white);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            animation: modalSlide 0.3s ease forwards;
+        }
+        @keyframes modalSlide {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1A1A1A;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .color-item {
+            aspect-ratio: 1/1;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        .color-item.active {
+            border-color: var(--main);
+            transform: scale(0.95);
+        }
+        .modal-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .custom-color-btn {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--main);
+            cursor: pointer;
+        }
+        .chosen-color {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .chosen-color-label {
+            font-size: 15px;
+            font-weight: 500;
+            color: #3A3A3C; /* 这里我已经修正了！去掉了多余的 "the" */
+        }
+        .chosen-color-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: var(--main);
+            border: 2px solid #E5E5EA;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: var(--radius-small);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        .modal-btn.cancel {
+            background: #F2F2F7;
+            color: #3A3A3C;
+        }
+        .modal-btn.set {
+            background: var(--main);
+            color: #fff;
+        }
+        .preview-box {
+            width: 100%;
+            height: 44px;
+            border-radius: var(--radius-small);
+            background: #fff;
+        }
+        .btn {
+            padding: 14px;
+            border: none;
+            border-radius: var(--radius-small);
+            background: #F2F2F7;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            color: #1C1C1E;
+        }
+        .btn.primary {
+            background: var(--main);
+            color: #fff;
+        }
+        .btn.danger {
+            background: #FF3B30;
+            color: #fff;
+        }
+        #imageUpload {
+            display: none;
+        }
+        .tip {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: var(--radius-small);
+            color: #3A3A3C;
+            font-size: 13px;
+            z-index: 20;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        .tip.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <button id="startBtn">启动音浪弹跳</button>
+    <button id="settingBtn">⚙️</button>
+
+    <div id="panel">
+        <div class="panel-title">主题切换</div>
+        <div class="section theme-grid">
+            <div class="theme-btn active" data-theme="customColor">自定义纯色</div>
+            <div class="theme-btn" data-theme="pink">马卡龙粉</div>
+            <div class="theme-btn" data-theme="purple">浅紫纯色</div>
+            <div class="theme-btn" data-theme="emoji">随机表情</div>
+            <div class="theme-btn" data-theme="customImg">我的图片</div>
+        </div>
+
+        <div id="customColorPanel">
+            <div class="panel-title" style="border:0; font-size:15px;">选择小球颜色</div>
+            <div class="color-trigger" id="colorTrigger">
+                <span>点击选择颜色</span>
+                <div class="color-preview-small" id="colorPreviewSmall"></div>
+            </div>
+            <div class="label">颜色预览</div>
+            <div class="preview-box" id="colorPreview"></div>
+            <button class="btn primary" id="applyColorBtn">应用颜色</button>
+        </div>
+
+        <div class="panel-title">小球设置</div>
+        <div class="section">
+            <div class="label">小球数量 <span id="ballCountText">40</span></div>
+            <input type="range" min="10" max="80" value="40" class="slider" id="ballCountSlider">
+            
+            <div class="label">声音灵敏度 <span id="sensitivityText">50%</span></div>
+            <input type="range" min="1" max="100" value="50" class="slider" id="sensitivitySlider">
+            
+            <div class="label">弹跳力度 <span id="forceText">100%</span></div>
+            <input type="range" min="20" max="200" value="100" class="slider" id="forceSlider">
+        </div>
+
+        <div class="panel-title">自定义图片</div>
+        <div class="section">
+            <label for="imageUpload" class="btn primary">上传图片（永久保存）</label>
+            <input type="file" id="imageUpload" accept="image/*" multiple>
+            <div class="label" id="uploadText">已保存：0张</div>
+            <button class="btn danger" id="clearImgBtn">清空所有图片</button>
+            <button class="btn" id="resetBtn">重置小球</button>
+        </div>
+    </div>
+
+    <div class="color-modal-overlay" id="colorModalOverlay">
+        <div class="color-modal">
+            <div class="modal-title">选择颜色</div>
+            <div class="color-grid">
+                <div class="color-item" data-color="#FF3B30" style="background:#FF3B30"></div>
+                <div class="color-item" data-color="#5AC8FA" style="background:#5AC8FA"></div>
+                <div class="color-item" data-color="#007AFF" style="background:#007AFF"></div>
+                <div class="color-item" data-color="#34C759" style="background:#34C759"></div>
+                <div class="color-item" data-color="#AF52DE" style="background:#AF52DE"></div>
+                <div class="color-item" data-color="#FFCC00" style="background:#FFCC00"></div>
+                <div class="color-item" data-color="#000000" style="background:#000000"></div>
+                <div class="color-item" data-color="#FFFFFF" style="background:#FFFFFF"></div>
+            </div>
+            <div class="modal-row">
+                <div class="custom-color-btn" id="customColorBtn">自定义颜色</div>
+                <div class="chosen-color">
+                    <span class="chosen-color-label">已选颜色</span>
+                    <div class="chosen-color-preview" id="chosenColorPreview"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <div class="modal-btn cancel" id="cancelBtn">CANCEL</div>
+                <div class="modal-btn set" id="setBtn">SET</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tip" id="tip">音量越大弹得越高 | 按住小球可拖动</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
+    <script>
+        let customColor = localStorage.getItem('customColor') || '#5E5CE6';
+        let tempColor = customColor;
+        let config = {
+            ballCount: 40,
+            sensitivity: 50,
+            jumpForce: 1.0
+        };
+
+        const themes = {
+            customColor: { bg: '#F7F7FB', type: 'color', color: customColor },
+            pink: { bg: '#FFF5F7', type: 'color', color: '#FF9EBB' },
+            purple: { bg: '#F8F0FF', type: 'color', color: '#C79FEF' },
+            emoji: { bg: '#F7F7FB', type: 'emoji', emojis: ['😀','😆','🥳','🤩','😎','🥰','😸','🎉','✨'] },
+            customImg: { bg: '#F7F7FB', type: 'img' }
+        };
+
+        let currentTheme = themes.customColor;
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let w = window.innerWidth;
+        let h = window.innerHeight;
+
+        const { Engine, World, Bodies, Body, Mouse, MouseConstraint, Events } = Matter;
+        const engine = Engine.create();
+        const world = engine.world;
+        world.gravity.y = 1;
+        let balls = [];
+        let walls = [];
+        let isDragging = false;
+        let customTextures = [];
+
+        const startBtn = document.getElementById('startBtn');
+        const settingBtn = document.getElementById('settingBtn');
+        const panel = document.getElementById('panel');
+        const themeBtns = document.querySelectorAll('.theme-btn');
+        const customColorPanel = document.getElementById('customColorPanel');
+        const colorTrigger = document.getElementById('colorTrigger');
+        const colorPreviewSmall = document.getElementById('colorPreviewSmall');
+        const colorPreview = document.getElementById('colorPreview');
+        const applyColorBtn = document.getElementById('applyColorBtn');
+        const colorModalOverlay = document.getElementById('colorModalOverlay');
+        const colorItems = document.querySelectorAll('.color-item');
+        const customColorBtn = document.getElementById('customColorBtn');
+        const chosenColorPreview = document.getElementById('chosenColorPreview');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const setBtn = document.getElementById('setBtn');
+        const ballCountSlider = document.getElementById('ballCountSlider');
+        const ballCountText = document.getElementById('ballCountText');
+        const sensitivitySlider = document.getElementById('sensitivitySlider');
+        const sensitivityText = document.getElementById('sensitivityText');
+        const forceSlider = document.getElementById('forceSlider');
+        const forceText = document.getElementById('forceText');
+        const imageUpload = document.getElementById('imageUpload');
+        const uploadText = document.getElementById('uploadText');
+        const resetBtn = document.getElementById('resetBtn');
+        const clearImgBtn = document.getElementById('clearImgBtn');
+        const tip = document.getElementById('tip');
+
+        colorPreviewSmall.style.background = customColor;
+        colorPreview.style.background = customColor;
+        chosenColorPreview.style.background = customColor;
+
+        colorTrigger.onclick = () => {
+            tempColor = customColor;
+            chosenColorPreview.style.background = tempColor;
+            colorItems.forEach(item => {
+                item.classList.remove('active');
+                if(item.dataset.color === tempColor) item.classList.add('active');
+            });
+            colorModalOverlay.classList.add('show');
+        };
+
+        const closeModal = () => {
+            colorModalOverlay.classList.remove('show');
+        };
+
+        cancelBtn.onclick = closeModal;
+        setBtn.onclick = () => {
+            customColor = tempColor;
+            colorPreviewSmall.style.background = customColor;
+            colorPreview.style.background = customColor;
+            closeModal();
+        };
+
+        colorItems.forEach(item => {
+            item.onclick = () => {
+                tempColor = item.dataset.color;
+                chosenColorPreview.style.background = tempColor;
+                colorItems.forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+            };
+        });
+
+        customColorBtn.onclick = () => {
+            const input = document.createElement('input');
+            input.type = 'color';
+            input.value = tempColor;
+            input.onchange = (e) => {
+                tempColor = e.target.value;
+                chosenColorPreview.style.background = tempColor;
+                colorItems.forEach(i => i.classList.remove('active'));
+            };
+            input.click();
+        };
+
+        function loadSavedImages() {
+            let saved = localStorage.getItem('customBallImages');
+            if(saved) {
+                let list = JSON.parse(saved);
+                list.forEach(base64 => {
+                    let img = new Image();
+                    img.src = base64;
+                    customTextures.push(img);
+                });
+            }
+            uploadText.textContent = `已保存：${customTextures.length}张`;
+        }
+
+        function initCanvas(){
+            w = window.innerWidth;
+            h = window.innerHeight;
+            canvas.width = w;
+            canvas.height = h;
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+        }
+
+        function createWalls(){
+            World.remove(world,walls);
+            let t=40;
+            walls=[
+                Bodies.rectangle(w/2,-t/2,w,t,{isStatic:true,restitution:1}),
+                Bodies.rectangle(w/2,h+t/2,w,t,{isStatic:true,restitution:0.9}),
+                Bodies.rectangle(-t/2,h/2,t,h,{isStatic:true,restitution:1}),
+                Bodies.rectangle(w+t/2,h/2,t,h,{isStatic:true,restitution:1})
+            ];
+            World.add(world,walls);
+        }
+
+        function createBalls(){
+            World.remove(world,balls);
+            balls=[];
+            for(let i=0;i<config.ballCount;i++){
+                let r=Math.random()*25+18;
+                let x=Math.random()*(w-r*2)+r;
+                let y=Math.random()*(h/2)+50;
+                
+                let ball = Bodies.circle(x,y,r,{
+                    restitution:0.9,
+                    friction:0.005,
+                    frictionAir:0.003
+                });
+
+                if(currentTheme.type === 'img' && customTextures.length>0){
+                    ball.texture = customTextures[Math.floor(Math.random()*customTextures.length)];
+                }else if(currentTheme.type === 'emoji'){
+                    ball.emoji = currentTheme.emojis[Math.floor(Math.random()*currentTheme.emojis.length)];
+                }else{
+                    ball.color = currentTheme.color;
+                }
+                
+                balls.push(ball);
+            }
+            World.add(world,balls);
+        }
+
+        function initDrag(){
+            let mouse = Mouse.create(canvas);
+            let mc = MouseConstraint.create(engine,{
+                mouse, constraint:{stiffness:0.2,damping:0.1,render:{visible:false}}
+            });
+            World.add(world,mc);
+            Events.on(mc,'startdrag',()=>isDragging=true);
+            Events.on(mc,'enddrag',()=>isDragging=false);
+        }
+
+        async function startAudio(){
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                await audioCtx.resume();
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: true
+                });
+
+                const analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 128;
+                const dataArr = new Uint8Array(analyser.frequencyBinCount);
+                audioCtx.createMediaStreamSource(stream).connect(analyser);
+
+                startBtn.classList.add('hidden');
+                tip.classList.add('show');
+
+                function loop(){
+                    analyser.getByteFrequencyData(dataArr);
+                    let sum = 0;
+                    dataArr.forEach(v => sum += v*v);
+                    const vol = Math.sqrt(sum / dataArr.length) / 255;
+                    const thr = config.sensitivity / 300;
+                    
+                    if(vol > thr && !isDragging){
+                        const f = vol * config.jumpForce * 0.25;
+                        balls.forEach(b => {
+                            Body.applyForce(b, b.position, {
+                                x: (Math.random()-0.5)*f*0.3,
+                                y: -f
+                            });
+                        });
+                    }
+                    requestAnimationFrame(loop);
+                }
+                loop();
+            } catch(e) {
+                let msg = "请允许麦克风权限，即可开启音浪弹跳";
+                if(e.name === "NotAllowedError"){
+                    msg = "麦克风权限被拒绝！请点地址栏🔒→设置→麦克风→允许";
+                }
+                alert(msg);
+            }
+        }
+
+        function render(){
+            ctx.clearRect(0,0,w,h);
+            balls.forEach(b=>{
+                let p=b.position,r=b.circleRadius;
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(p.x,p.y,r,0,Math.PI*2);
+                
+                if(b.texture){
+                    ctx.clip();
+                    ctx.drawImage(b.texture,p.x-r,p.y-r,r*2,r*2);
+                }else if(b.emoji){
+                    ctx.fillStyle='#fff';
+                    ctx.fill();
+                    ctx.fillStyle='#000';
+                    ctx.font=`${r*1.2}px Arial`;
+                    ctx.textAlign='center';
+                    ctx.textBaseline='middle';
+                    ctx.fillText(b.emoji,p.x,p.y);
+                }else{
+                    ctx.fillStyle=b.color;
+                    ctx.fill();
+                }
+                ctx.restore();
+            });
+            requestAnimationFrame(render);
+        }
+
+        function switchTheme(key){
+            currentTheme = themes[key];
+            document.body.style.background = currentTheme.bg;
+            customColorPanel.style.display = currentTheme.type==='color'?'flex':'none';
+            themeBtns.forEach(b=>b.dataset.theme===key?b.classList.add('active'):b.classList.remove('active'));
+            createBalls();
+            panel.classList.remove('show');
+        }
+
+        imageUpload.onchange = e => {
+            let files = Array.from(e.target.files);
+            if(!files.length) return;
+            
+            let count = 0;
+            let base64List = [];
+            
+            files.forEach(file=>{
+                let reader = new FileReader();
+                reader.onload = ev=>{
+                    let img = new Image();
+                    img.onload = ()=>{
+                        let c=document.createElement('canvas');
+                        c.width=128,c.height=128;
+                        let ct=c.getContext('2d');
+                        ct.beginPath(),ct.arc(64,64,64,0,Math.PI*2),ct.clip();
+                        ct.drawImage(img,(img.width-Math.min(img.width,img.height))/2,(img.height-Math.min(img.width,img.height))/2,Math.min(img.width,img.height),Math.min(img.width,img.height),0,0,128,128);
+                        let base64 = c.toDataURL('image/png');
+                        base64List.push(base64);
+                        
+                        let newImg = new Image();
+                        newImg.src = base64;
+                        customTextures.push(newImg);
+                        
+                        count++;
+                        if(count === files.length){
+                            let saved = JSON.parse(localStorage.getItem('customBallImages')||'[]');
+                            localStorage.setItem('customBallImages', JSON.stringify([...saved,...base64List]));
+                            uploadText.textContent = `已保存：${customTextures.length}张`;
+                            createBalls();
+                        }
+                    };
+                    img.src=ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        };
+
+        clearImgBtn.onclick = ()=>{
+            customTextures = [];
+            localStorage.removeItem('customBallImages');
+            uploadText.textContent = `已保存：${customTextures.length}张`;
+            createBalls();
+        };
+
+        window.onload=()=>{
+            loadSavedImages();
+            initCanvas();
+            createWalls();
+            createBalls();
+            initDrag();
+            render();
+            Matter.Runner.run(engine);
+        };
+
+        startBtn.onclick=startAudio;
+        settingBtn.onclick=e=>{e.stopPropagation();panel.classList.toggle('show');};
+        themeBtns.forEach(b=>b.onclick=()=>switchTheme(b.dataset.theme));
+
+        applyColorBtn.onclick=()=>{
+            localStorage.setItem('customColor',customColor);
+            currentTheme.color = customColor;
+            createBalls();
+        };
+
+        ballCountSlider.oninput=()=>{
+            config.ballCount=+ballCountSlider.value;
+            ballCountText.textContent=config.ballCount;
+        };
+        sensitivitySlider.oninput=()=>{
+            config.sensitivity=+sensitivitySlider.value;
+            sensitivityText.textContent=config.sensitivity+'%';
+        };
+        forceSlider.oninput=()=>{
+            config.jumpForce=+forceSlider.value/100;
+            forceText.textContent=forceSlider.value+'%';
+        };
+
+        resetBtn.onclick=createBalls;
+        window.onresize=()=>{initCanvas();createWalls();createBalls();};
+
+        colorModalOverlay.onclick = (e) => {
+            if(e.target === colorModalOverlay) closeModal();
+        };
+    </script>
+</body>
+</html>
